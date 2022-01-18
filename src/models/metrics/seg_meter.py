@@ -21,10 +21,10 @@ class SegMeter:
         pred_mask = pred_mask_org[ind]
         self.n_classes = model.n_classes
         if model.n_classes == 1:
-            cf = confusion_binary_class(torch.as_tensor(pred_mask).float().cuda(), masks.cuda().float())
+            cf = confusion_binary_class(torch.as_tensor(pred_mask).float().to(model.device), masks.to(model.device).float())
         else:
             labels = np.arange(model.n_classes)
-            cf = confusion_multi_class(torch.as_tensor(pred_mask).float().cuda(), masks.cuda().float(),
+            cf = confusion_multi_class(torch.as_tensor(pred_mask).float().to(model.device), masks.to(model.device).float(),
                                     labels=labels)
 
         if self.cf is None:

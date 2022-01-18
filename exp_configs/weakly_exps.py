@@ -13,16 +13,16 @@ model_list = []
 #                                     'n_channels':3,'n_classes':1},
 #     ]
 model_list += [ 
-    {'name':'semseg', 'loss':'cons_point_loss',
-                                 'base':'fcn8_vgg16',
-                                  'n_channels':3,'n_classes':1},
-    {'name':'semseg', 'loss':'point_loss',
-                                 'base':'fcn8_vgg16',
-                                  'n_channels':3,'n_classes':1},
+    # {'name':'semseg', 'loss':'cons_point_loss',
+    #                              'base':'fcn8_vgg16',
+    #                               'n_channels':3,'n_classes':1},
+    # {'name':'semseg', 'loss':'point_loss',
+    #                              'base':'fcn8_vgg16',
+    #                               'n_channels':3,'n_classes':1},
     
-                {'name':'semseg', 'loss':'joint_cross_entropy',
-                                 'base':'fcn8_vgg16',
-                                  'n_channels':3,'n_classes':1},
+    {'name':'semseg', 'loss':'joint_cross_entropy',
+                     'base':'densenet121',
+                      'n_channels':3,'n_classes':1},
 
                
                 # {'name':'semseg', 'loss':'att_point_loss',
@@ -62,20 +62,22 @@ for dataset in ['covid19_v3_mixed', 'covid19_v3_sep',
             if n_classes == 3 and (dataset == 'covid19_v1' or dataset == 'covid19_v3_mixed'):
                 continue
             EXP_GROUPS["%sweakly_%s%s" % (prefix, dataset, suffix)] = hu.cartesian_exp_group({
-                    'batch_size': [8],
+                    'GDA':False,
+                    'batch_size': [16],
                     'num_channels':1,
                     'dataset': [
                             {'name':dataset, 'n_classes':n_classes},
                                 ],
                     'dataset_size':dataset_size,
-                    'max_epoch': [101],
+                    'max_epoch': [18],
                     'optimizer': [ "adam"],
                     'lr': [1e-4,],
                     'model': model_list
                     })
 
             EXP_GROUPS["%sweakly_%s%s_count" % (prefix, dataset, suffix)] = hu.cartesian_exp_group({
-                                'batch_size': [8],
+                                'GDA':False,
+                                'batch_size': [16],
                                 'num_channels':1,
                                 'dataset': [
                                         {'name':dataset, 'n_classes':n_classes},

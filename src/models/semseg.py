@@ -3,9 +3,13 @@
 import os, tqdm
 import numpy as np
 import pandas as pd
+import wandb
 from haven import haven_utils as hu 
 import torch
 import torch.nn.functional as F
+from libauc.losses import CrossEntropyLoss
+from torch import nn
+
 from src import utils as ut
 from src.modules.lcfcn import lcfcn_loss
 import sys
@@ -56,8 +60,8 @@ class SemSeg(torch.nn.Module):
         pbar = tqdm.tqdm(desc="Training", total=n_batches, leave=False)
         train_monitor = TrainMonitor()
     
-        for batch in train_loader:
-            score_dict = self.train_on_batch(batch)
+        for step_num,batch in enumerate(train_loader):
+            score_dict = self.train_on_batch(batch,step_num)
             train_monitor.add(score_dict)
             msg = ' '.join(["%s: %.3f" % (k, v) for k,v in train_monitor.get_avg_score().items()])
             pbar.set_description('Training - %s' % msg)
@@ -222,21 +226,30 @@ class SemSeg(torch.nn.Module):
 
         return loss 
 
-    def train_on_batch(self, batch):
-        # add to seen images
-        for m in batch['meta']:
-            self.train_hashes.add(m['hash'])
-
+    def train_on_batch(self, batch,step_num):
         self.opt.zero_grad()
 
         images = batch["images"].to(self.device)
         
         # compute loss
         loss_name = self.exp_dict['model']['loss']
+        CELoss = CrossEntropyLoss()
         if loss_name in ['joint_cross_entropy']:
-            logits = self.model_base(images)
+            logits_masks,logits_labels = self.model_base(images)
             # full supervision
-            loss = self.compute_mask_loss(loss_name, images, logits, masks=batch["masks"].to(self.device))
+            labels = batch['labels']
+            masks = batch['masks']
+
+            if len(labels) > 0:
+                cls_loss = CELoss(logits_labels[:len(labels)],labels.to(self.device))
+            else:
+                cls_loss = torch.tensor(0,device=logits_labels.device)
+            assert len(masks) > 0
+            loss = self.compute_mask_loss(loss_name, images[len(labels):], logits_masks[len(labels):], masks=batch["masks"].to(self.device))
+            wandb.log({'amounts/source_amount':len(labels),'amounts/target_amount':len(masks)},step=(self.epoch-1)*100 + step_num)
+            losses_dict = {'cls_loss':float(cls_loss),'seg_loss':float(loss),'total_loss':float(loss+cls_loss)}
+            loss += cls_loss
+
         elif loss_name in ['point_loss', 'cons_point_loss', 'lcfcn_loss', 'affine_cons_point_loss', 'rot_point_loss', 'elastic_cons_point_loss', 'toponet']:
             logits = self.model_base(images)
             # point supervision
@@ -255,7 +268,7 @@ class SemSeg(torch.nn.Module):
             except:
                 self.opt.step(loss=loss)
 
-        return {'train_loss': float(loss)}
+        return losses_dict
 
     @torch.no_grad()
     def predict_on_batch(self, batch):
@@ -273,14 +286,14 @@ class SemSeg(torch.nn.Module):
             res = res > 0.5
             
         elif self.n_classes == 1:
-            res = self.model_base.forward(image)
+            res,_ = self.model_base.forward(image)
             if 'shape' in batch['meta'][0]:
                 res = F.interpolate(res, size=batch['meta'][0]['shape'],              
                             mode='bilinear', align_corners=False)
             res = (res.sigmoid().data.cpu().numpy() > 0.5).astype('float')
         else:
             self.eval()
-            logits = self.model_base.forward(image)
+            logits,_ = self.model_base.forward(image)
             res = logits.argmax(dim=1).data.cpu().numpy()
 
         return res 

@@ -82,7 +82,7 @@ class Covid19V2(torch.utils.data.Dataset):
 
         self.img_transform = transforms.Compose([
 
-            transforms.CenterCrop((384, 385)),
+            transforms.CenterCrop((384, 384)),
             # transforms.Resize((self.size, self.size)),
             transforms.ToTensor(),
             transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])])
@@ -90,13 +90,13 @@ class Covid19V2(torch.utils.data.Dataset):
         if split == 'train':
             self.gt_transform = transforms.Compose([
 
-            transforms.CenterCrop((384, 385)),
+            transforms.CenterCrop((384, 384)),
             # transforms.Resize((self.size, self.size), interpolation=PIL.Image.NEAREST),
                 # transforms.ToTensor()]
             ])
         else:
             self.gt_transform = transforms.Compose([
-                transforms.CenterCrop((384, 385)),
+                transforms.CenterCrop((384, 384)),
                 # transforms.ToTensor()
             ])
 

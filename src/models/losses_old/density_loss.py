@@ -2,11 +2,11 @@ import torch
 import skimage
 import torch.nn.functional as F
 import numpy as np
-from skimage.morphology import watershed
+from skimage.segmentation import watershed
 from skimage.segmentation import find_boundaries
 from scipy import ndimage
 from skimage import morphology as morph
-from skimage.morphology import watershed
+from skimage.segmentation import watershed
 from skimage.segmentation import find_boundaries
 import kornia
 
