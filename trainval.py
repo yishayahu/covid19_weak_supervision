@@ -89,8 +89,8 @@ def trainval(exp_dict, savedir, args):
                               drop_last=True,
                               num_workers=args.num_workers)
 
-    train_loader = DataLoaderWrapper(ds=ConcatDataset([source_train_set,train_set]),source_dl=source_train_loader,target_dl=train_loader,steps_per_epoch=300,
-                                     source_decay_rate=1,batch_size=    exp_dict["batch_size"])
+    train_loader = DataLoaderWrapper(ds=ConcatDataset([source_train_set,train_set]),source_dl=source_train_loader,target_dl=train_loader,steps_per_epoch=exp_dict['steps_per_epoch'],
+                                     source_decay_rate=1,batch_size=exp_dict["batch_size"])
     val_loader = DataLoader(val_set,
                             # sampler=val_sampler,
                             batch_size=1,
@@ -163,9 +163,11 @@ def trainval(exp_dict, savedir, args):
                 test_true = np.concatenate(test_true)
                 test_pred = np.concatenate(test_pred)
                 val_auc_mean =  roc_auc_score(test_true, test_pred)
-                wandb.log({'auc_mean/val':float(val_auc_mean)},step=(e+1)*100)
+                wandb.log({'auc_mean/val':float(val_auc_mean)},step=(e+1)*exp_dict['steps_per_epoch'])
                 model.train()
-        wandb.log({'dice/val':float(val_dict["val_score"]),'losses/cls_loss': float(train_dict['cls_loss']),'losses/total_loss': float(train_dict['total_loss']),'losses/seg_loss': float(train_dict['seg_loss'])},step=(e+1)*100)
+
+        wandb.log({'dice/val':float(val_dict["val_score"]),'losses/cls_loss': float(train_dict['cls_loss']),'losses/total_loss': float(train_dict['total_loss']),'losses/seg_loss': float(train_dict['seg_loss'])
+                   ,'lr': float(model.sched.get_last_lr())},step=(e+1)*exp_dict['steps_per_epoch'])
         # Get new score_dict
         score_dict.update(train_dict)
         score_dict["epoch"] = e
@@ -178,20 +180,21 @@ def trainval(exp_dict, savedir, args):
 
         # Save Best Checkpoint
         score_df = pd.DataFrame(score_list)
-        if score_dict["val_score"] >= model.val_score_best:
+        if score_dict["val_score"] >= model.val_score_best or e == exp_dict['max_epoch']-1:
             test_dict = model.val_on_loader(test_loader,
                                 savedir_images=os.path.join(savedir, "images"),
                                 n_images=3)
 
-            wandb.log({'dice/test':float(test_dict["test_score"])},step=(e+1)*100)
-            score_dict.update(test_dict)
-            hu.save_pkl(os.path.join(savedir, "score_list_best.pkl"), score_list)
-            # score_df.to_csv(os.path.join(savedir, "score_best_df.csv"))
-            hu.torch_save(os.path.join(savedir, "model_best.pth"),
-                        model.get_state_dict())
-            model.waiting = 0
-            model.val_score_best = score_dict["val_score"]
-            print("Saved Best: %s" % savedir)
+            wandb.log({'dice/test':float(test_dict["test_score"])},step=(e+1)*exp_dict['steps_per_epoch'])
+            if score_dict["val_score"] >= model.val_score_best:
+                score_dict.update(test_dict)
+                hu.save_pkl(os.path.join(savedir, "score_list_best.pkl"), score_list)
+                # score_df.to_csv(os.path.join(savedir, "score_best_df.csv"))
+                hu.torch_save(os.path.join(savedir, "model_best.pth"),
+                            model.get_state_dict())
+                model.waiting = 0
+                model.val_score_best = score_dict["val_score"]
+                print("Saved Best: %s" % savedir)
 
         # Report & Save
         score_df = pd.DataFrame(score_list)

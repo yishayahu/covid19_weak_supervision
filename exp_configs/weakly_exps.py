@@ -62,14 +62,15 @@ for dataset in ['covid19_v3_mixed', 'covid19_v3_sep',
             if n_classes == 3 and (dataset == 'covid19_v1' or dataset == 'covid19_v3_mixed'):
                 continue
             EXP_GROUPS["%sweakly_%s%s" % (prefix, dataset, suffix)] = hu.cartesian_exp_group({
-                    'GDA':False,
+                    'GDA':True,
                     'batch_size': [16],
                     'num_channels':1,
                     'dataset': [
                             {'name':dataset, 'n_classes':n_classes},
                                 ],
                     'dataset_size':dataset_size,
-                    'max_epoch': [18],
+                    'max_epoch': [25],
+                    'steps_per_epoch' : 200,
                     'optimizer': [ "adam"],
                     'lr': [1e-4,],
                     'model': model_list

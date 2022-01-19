@@ -15,7 +15,7 @@ from src.modules.lcfcn import lcfcn_loss
 import sys
 from scipy.ndimage.filters import gaussian_filter
 from kornia.geometry.transform import flips
-from . import optimizers, metrics, networks
+from . import optimizers, metrics, networks,schedulers
 from src.modules import sstransforms as sst
 
 class SemSeg(torch.nn.Module):
@@ -35,6 +35,7 @@ class SemSeg(torch.nn.Module):
                                               exp_dict=self.exp_dict)
         self.to(self.device)
         self.opt = optimizers.get_optimizer(self.exp_dict['optimizer'], self.model_base, self.exp_dict)
+        self.sched = schedulers.get_scheduler(self.exp_dict.get('scheduler'),self.opt)
 
 
     def get_state_dict(self):
@@ -66,7 +67,7 @@ class SemSeg(torch.nn.Module):
             msg = ' '.join(["%s: %.3f" % (k, v) for k,v in train_monitor.get_avg_score().items()])
             pbar.set_description('Training - %s' % msg)
             pbar.update(1)
-            
+        self.sched.step()
         pbar.close()
 
         if self.exp_dict.get('adjust_lr'):
@@ -246,7 +247,7 @@ class SemSeg(torch.nn.Module):
                 cls_loss = torch.tensor(0,device=logits_labels.device)
             assert len(masks) > 0
             loss = self.compute_mask_loss(loss_name, images[len(labels):], logits_masks[len(labels):], masks=batch["masks"].to(self.device))
-            wandb.log({'amounts/source_amount':len(labels),'amounts/target_amount':len(masks)},step=(self.epoch-1)*100 + step_num)
+            wandb.log({'amounts/source_amount':len(labels),'amounts/target_amount':len(masks)},step=(self.epoch-1)*self.exp_dict['steps_per_epoch'] + step_num)
             losses_dict = {'cls_loss':float(cls_loss),'seg_loss':float(loss),'total_loss':float(loss+cls_loss)}
             loss += cls_loss
 
