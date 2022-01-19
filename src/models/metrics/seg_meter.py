@@ -12,10 +12,10 @@ class SegMeter:
         self.struct_list = []
         self.split = split
 
-    def val_on_batch(self, model, batch):
+    def val_on_batch(self, model, batch,pred_mask_org = None):
         masks_org = batch["masks"]
-
-        pred_mask_org = model.predict_on_batch(batch)
+        if pred_mask_org is None:
+            pred_mask_org = model.predict_on_batch(batch)
         ind = masks_org != 255
         masks = masks_org[ind]
         pred_mask = pred_mask_org[ind]

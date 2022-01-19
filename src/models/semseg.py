@@ -60,9 +60,11 @@ class SemSeg(torch.nn.Module):
 
         pbar = tqdm.tqdm(desc="Training", total=n_batches, leave=False)
         train_monitor = TrainMonitor()
+        train_meter = metrics.SegMeter(split='train')
     
         for step_num,batch in enumerate(train_loader):
-            score_dict = self.train_on_batch(batch,step_num)
+            score_dict,preds = self.train_on_batch(batch,step_num)
+            train_meter.val_on_batch(self, batch,pred_mask_org=preds)
             train_monitor.add(score_dict)
             msg = ' '.join(["%s: %.3f" % (k, v) for k,v in train_monitor.get_avg_score().items()])
             pbar.set_description('Training - %s' % msg)
@@ -73,8 +75,9 @@ class SemSeg(torch.nn.Module):
         if self.exp_dict.get('adjust_lr'):
             infnet.adjust_lr(self.opt,
                                 self.epoch, decay_rate=0.1, decay_epoch=30)
-
-        return train_monitor.get_avg_score()
+        res_dict = train_monitor.get_avg_score()
+        res_dict.update(train_meter.get_avg_score())
+        return res_dict
 
     def compute_mask_loss(self, loss_name, images, logits, masks):
         if loss_name == 'cross_entropy':
@@ -242,14 +245,15 @@ class SemSeg(torch.nn.Module):
             masks = batch['masks']
 
             if len(labels) > 0:
-                cls_loss = CELoss(logits_labels[:len(labels)],labels.to(self.device))
+                cls_loss = CELoss(logits_labels[:len(labels)],labels.to(self.device)) * self.exp_dict['cls_lambda']
             else:
                 cls_loss = torch.tensor(0,device=logits_labels.device)
             assert len(masks) > 0
             loss = self.compute_mask_loss(loss_name, images[len(labels):], logits_masks[len(labels):], masks=batch["masks"].to(self.device))
             wandb.log({'amounts/source_amount':len(labels),'amounts/target_amount':len(masks)},step=(self.epoch-1)*self.exp_dict['steps_per_epoch'] + step_num)
             losses_dict = {'cls_loss':float(cls_loss),'seg_loss':float(loss),'total_loss':float(loss+cls_loss)}
-            loss += cls_loss
+            loss = cls_loss + loss
+            preds = ((logits_masks[len(labels):]).sigmoid().data.cpu().numpy() > 0.5).astype('float')
 
         elif loss_name in ['point_loss', 'cons_point_loss', 'lcfcn_loss', 'affine_cons_point_loss', 'rot_point_loss', 'elastic_cons_point_loss', 'toponet']:
             logits = self.model_base(images)
@@ -269,7 +273,7 @@ class SemSeg(torch.nn.Module):
             except:
                 self.opt.step(loss=loss)
 
-        return losses_dict
+        return losses_dict,preds
 
     @torch.no_grad()
     def predict_on_batch(self, batch):

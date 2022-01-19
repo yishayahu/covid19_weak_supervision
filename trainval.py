@@ -143,7 +143,7 @@ def trainval(exp_dict, savedir, args):
         #                         n_images=3)
         # Train the model
         train_dict = model.train_on_loader(train_loader)
-
+        score_dict["train_score"] = train_dict["train_score"]
         # Validate the model
         val_dict = model.val_on_loader(val_loader)
 
@@ -166,8 +166,8 @@ def trainval(exp_dict, savedir, args):
                 wandb.log({'auc_mean/val':float(val_auc_mean)},step=(e+1)*exp_dict['steps_per_epoch'])
                 model.train()
 
-        wandb.log({'dice/val':float(val_dict["val_score"]),'losses/cls_loss': float(train_dict['cls_loss']),'losses/total_loss': float(train_dict['total_loss']),'losses/seg_loss': float(train_dict['seg_loss'])
-                   ,'lr': float(model.sched.get_last_lr())},step=(e+1)*exp_dict['steps_per_epoch'])
+        wandb.log({'dice/val':float(val_dict["val_score"]),'dice/train':float(train_dict["train_score"]),'losses/cls_loss': float(train_dict['cls_loss']),'losses/total_loss': float(train_dict['total_loss']),'losses/seg_loss': float(train_dict['seg_loss'])
+                   ,'lr': float(model.sched.get_last_lr()[0])},step=(e+1)*exp_dict['steps_per_epoch'])
         # Get new score_dict
         score_dict.update(train_dict)
         score_dict["epoch"] = e

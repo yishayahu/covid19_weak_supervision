@@ -71,7 +71,9 @@ for dataset in ['covid19_v3_mixed', 'covid19_v3_sep',
                     'dataset_size':dataset_size,
                     'max_epoch': [25],
                     'steps_per_epoch' : 200,
+                    'cls_lambda': 0.5,
                     'optimizer': [ "adam"],
+                    'scheduler': {'factor':1},
                     'lr': [1e-4,],
                     'model': model_list
                     })
